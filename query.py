@@ -1,0 +1,164 @@
+q1 = "select L_RETURNFLAG, L_LINESTATUS, \
+    sum(L_QUANTITY) as sum_qty, \
+    sum(L_EXTENDEDPRICE) as sum_base_price, \
+    sum(L_EXTENDEDPRICE * (1 - L_DISCOUNT)) as sum_disC_PRICE, \
+    sum(L_EXTENDEDPRICE * (1 - L_DISCOUNT) * (1 + L_TAX)) as sum_charge, \
+    avg(L_QUANTITY) as avg_qty, \
+    avg(L_EXTENDEDPRICE) as avg_price, \
+    avg(L_DISCOUNT) as avg_disc, \
+    count(*) as count_order \
+    from lineitem \
+    where L_SHIPDATE <= '1998-09-16' \
+    group by L_RETURNFLAG, L_LINESTATUS \
+    order by L_RETURNFLAG, L_LINESTATUS"
+
+q3 = "select L_ORDERKEY, \
+    sum(L_EXTENDEDPRICE * (1 - L_DISCOUNT)) as REVENUE, \
+    O_ORDERDATE, \
+    O_SHIPPRIORITY \
+    from CUSTOMER, ORDERS, LINEITEM \
+    where C_MKTSEGMENT = 'BUILDING' \
+        and C_CUSTKEY = O_CUSTKEY \
+        and L_ORDERKEY = O_ORDERKEY \
+        and O_ORDERDATE < '1995-03-22' \
+        and L_SHIPDATE > '1995-03-22' \
+    group by L_ORDERKEY, O_ORDERDATE, O_SHIPPRIORITY \
+    order by REVENUE desc, O_ORDERDATE \
+    limit 10"
+
+q5 = "select N_NAME, SUM(L_EXTENDEDPRICE * (1 - L_DISCOUNT)) AS REVENUE \
+    from CUSTOMER, ORDERS, LINEITEM, SUPPLIER, NATION, REGION \
+    where C_CUSTKEY = O_CUSTKEY \
+        AND L_ORDERKEY = O_ORDERKEY \
+        AND L_SUPPKEY = S_SUPPKEY \
+        AND C_NATIONKEY = S_NATIONKEY \
+        AND S_NATIONKEY = N_NATIONKEY \
+        AND N_REGIONKEY = R_REGIONKEY \
+        AND R_NAME = 'AFRICA' \
+        AND O_ORDERDATE >= '1993-01-01' \
+        AND O_ORDERDATE < '1994-01-01' \
+    group by N_NAME \
+    order by REVENUE DESC"
+
+q7 = "select SUPP_NATION, CUST_NATION, L_YEAR, SUM(VOLUME) AS REVENUE \
+    from ( SELECT \
+                N1.N_NAME AS SUPP_NATION, \
+                N2.N_NAME AS CUST_NATION, \
+                YEAR(L_SHIPDATE) AS L_YEAR, \
+                L_EXTENDEDPRICE * (1 - L_DISCOUNT) AS VOLUME \
+            FROM SUPPLIER, LINEITEM, ORDERS, CUSTOMER, NATION N1, NATION N2 \
+            WHERE S_SUPPKEY = L_SUPPKEY \
+                AND O_ORDERKEY = L_ORDERKEY \
+                AND C_CUSTKEY = O_CUSTKEY \
+                AND S_NATIONKEY = N1.N_NATIONKEY \
+                AND C_NATIONKEY = N2.N_NATIONKEY \
+                AND ((N1.N_NAME = 'KENYA' AND N2.N_NAME = 'PERU') \
+                    OR (N1.N_NAME = 'PERU' AND N2.N_NAME = 'KENYA')) \
+                AND L_SHIPDATE BETWEEN '1995-01-01' AND '1996-12-31' \
+        ) AS SHIPPING \
+    group by SUPP_NATION, CUST_NATION, L_YEAR \
+    order by SUPP_NATION, CUST_NATION, L_YEAR"
+
+q16 = "select P_BRAND, P_TYPE, P_SIZE, COUNT(DISTINCT PS_SUPPKEY) AS SUPPLIER_CNT \
+    from PARTSUPP, PART \
+    where P_PARTKEY = PS_PARTKEY \
+        AND P_BRAND <> 'BRAND#34' \
+        AND P_TYPE NOT LIKE 'ECONOMY BRUSHED%' \
+        AND P_SIZE IN (22, 14, 27, 49, 21, 33, 35, 28) \
+        AND PARTSUPP.PS_SUPPKEY NOT IN ( \
+            SELECT \
+                S_SUPPKEY \
+            FROM \
+                SUPPLIER \
+            WHERE \
+                S_COMMENT LIKE '%CUSTOMER%COMPLAINTS%') \
+    group by P_BRAND, P_TYPE, P_SIZE \
+    order by SUPPLIER_CNT DESC, P_BRAND, P_TYPE, P_SIZE"
+
+q18 = " DROP VIEW Q18_TMP_CACHED; \
+        DROP TABLE Q18_LARGE_VOLUME_CUSTOMER_CACHED; \
+        CREATE VIEW Q18_TMP_CACHED AS \
+        SELECT L_ORDERKEY, SUM(L_QUANTITY) AS T_SUM_QUANTITY \
+        FROM LINEITEM \
+        WHERE L_ORDERKEY IS NOT NULL \
+        GROUP BY L_ORDERKEY; \
+        CREATE TABLE Q18_LARGE_VOLUME_CUSTOMER_CACHED AS \
+        SELECT C_NAME, C_CUSTKEY, O_ORDERKEY, O_ORDERDATE, O_TOTALPRICE, SUM(L_QUANTITY) \
+        FROM CUSTOMER, ORDERS, Q18_TMP_CACHED T, LINEITEM L \
+        WHERE C_CUSTKEY = O_CUSTKEY \
+            AND O_ORDERKEY = T.L_ORDERKEY \
+            AND O_ORDERKEY IS NOT NULL \
+            AND T.T_SUM_QUANTITY > 300 \
+            AND O_ORDERKEY = L.L_ORDERKEY \
+            AND L.L_ORDERKEY IS NOT NULL \
+        GROUP BY C_NAME, C_CUSTKEY, O_ORDERKEY, O_ORDERDATE, O_TOTALPRICE \
+        ORDER BY O_TOTALPRICE DESC, O_ORDERDATE  \
+        LIMIT 100"
+
+q20 = " DROP VIEW Q20_TMP1_CACHED; \
+        DROP VIEW Q20_TMP2_CACHED; \
+        DROP VIEW Q20_TMP3_CACHED; \
+        DROP VIEW Q20_TMP4_CACHED; \
+        CREATE VIEW Q20_TMP1_CACHED AS \
+        SELECT DISTINCT P_PARTKEY \
+        FROM PART \
+        WHERE P_NAME LIKE 'FOREST%'; \
+        CREATE VIEW Q20_TMP2_CACHED AS \
+        SELECT L_PARTKEY, L_SUPPKEY, 0.5 * SUM(L_QUANTITY) AS SUM_QUANTITY \
+        FROM LINEITEM \
+        WHERE L_SHIPDATE >= '1994-01-01' \
+            AND L_SHIPDATE < '1995-01-01' \
+        GROUP BY L_PARTKEY, L_SUPPKEY; \
+        CREATE VIEW Q20_TMP3_CACHED AS \
+        SELECT PS_SUPPKEY, PS_AVAILQTY, SUM_QUANTITY \
+        FROM PARTSUPP, Q20_TMP1_CACHED, Q20_TMP2_CACHED \
+        WHERE PS_PARTKEY = P_PARTKEY \
+            AND PS_PARTKEY = L_PARTKEY \
+            AND PS_SUPPKEY = L_SUPPKEY; \
+        CREATE VIEW Q20_TMP4_CACHED AS \
+        SELECT PS_SUPPKEY \
+        FROM Q20_TMP3_CACHED \
+        WHERE PS_AVAILQTY > SUM_QUANTITY \
+        GROUP BY PS_SUPPKEY; \
+        SELECT S_NAME, S_ADDRESS \
+        FROM SUPPLIER, NATION, Q20_TMP4_CACHED \
+        WHERE S_NATIONKEY = N_NATIONKEY AND N_NAME = 'CANADA' AND S_SUPPKEY = PS_SUPPKEY \
+        ORDER BY S_NAME"
+
+q22 = " DROP VIEW Q22_CUSTOMER_TMP_CACHED; \
+        DROP VIEW Q22_CUSTOMER_TMP1_CACHED; \
+        DROP VIEW Q22_ORDERS_TMP_CACHED; \
+        CREATE VIEW IF NOT EXISTS Q22_CUSTOMER_TMP_CACHED AS \
+        SELECT C_ACCTBAL, C_CUSTKEY, SUBSTR(C_PHONE, 1, 2) AS CNTRYCODE \
+        FROM CUSTOMER \
+        WHERE SUBSTR(C_PHONE, 1, 2) = '13' OR \
+            SUBSTR(C_PHONE, 1, 2) = '31' OR \
+            SUBSTR(C_PHONE, 1, 2) = '23' OR \
+            SUBSTR(C_PHONE, 1, 2) = '29' OR \
+            SUBSTR(C_PHONE, 1, 2) = '30' OR \
+            SUBSTR(C_PHONE, 1, 2) = '18' OR \
+            SUBSTR(C_PHONE, 1, 2) = '17'; \
+        CREATE VIEW IF NOT EXISTS Q22_CUSTOMER_TMP1_CACHED AS \
+        SELECT AVG(C_ACCTBAL) AS AVG_ACCTBAL \
+        FROM Q22_CUSTOMER_TMP_CACHED \
+        WHERE C_ACCTBAL > 0.00; \
+        CREATE VIEW IF NOT EXISTS Q22_ORDERS_TMP_CACHED AS \
+        SELECT O_CUSTKEY \
+        FROM ORDERS \
+        GROUP BY O_CUSTKEY; \
+        SELECT CNTRYCODE, COUNT(1) AS NUMCUST, SUM(C_ACCTBAL) AS TOTACCTBAL \
+        FROM ( SELECT CNTRYCODE, C_ACCTBAL, AVG_ACCTBAL \
+               FROM Q22_CUSTOMER_TMP1_CACHED CT1 JOIN ( \
+                    SELECT \
+                        CNTRYCODE, \
+                        C_ACCTBAL \
+                    FROM \
+                        Q22_ORDERS_TMP_CACHED OT \
+                        RIGHT OUTER JOIN Q22_CUSTOMER_TMP_CACHED CT \
+                        ON CT.C_CUSTKEY = OT.O_CUSTKEY \
+                    WHERE \
+                        O_CUSTKEY IS NULL \
+                ) CT2 ) A \
+        WHERE C_ACCTBAL > AVG_ACCTBAL \
+        GROUP BY CNTRYCODE \
+        ORDER BY CNTRYCODE "
