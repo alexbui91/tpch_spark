@@ -3,6 +3,7 @@ from pyspark.sql import SparkSession
 from structure import *
 from query import *
 from datetime import datetime
+import properties as p
 
 
 spark, sc = None, None
@@ -54,7 +55,7 @@ def init_spark(sp=None):
     else:
         spark = SparkSession.builder.appName("assignment").getOrCreate()
     sc = spark.sparkContext
-    customer, lineitem, nation, region, region, part, partsupp, orders, supplier = init_table('/home/alex/Documents/tpch/dbgen')
+    customer, lineitem, nation, region, region, part, partsupp, orders, supplier = init_table(p.baseurl)
     schema_entities = {
         'customer': (customer, s_customer), 
         'lineitem': (lineitem, s_lineitem), 
