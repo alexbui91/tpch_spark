@@ -1,4 +1,5 @@
 from pyspark.sql import SparkSession
+from pyspark import SparkConf
 # from pyspark.sql import SQLContext
 from query import *
 import time
