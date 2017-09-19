@@ -18,10 +18,9 @@ def init_spark(pre=False):
 
 
 def execute_all():
-    global spark
     for n, q in queries.iteritems():
         try:
-            execute_query(spark, n, q)
+            execute(n, q)
         except Exception as e: 
             print('Error occured', e)
             continue
@@ -43,7 +42,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--preload", default=False, type=bool)
     parser.add_argument("-q", "--query")
+    parser.add_argument("-a", "--all", default=False, type=bool)
     args = parser.parse_args()
     init_spark(args.preload)
-    if args.query and args.query in queries:
+    if args.all:
+        execute_all()
+    elif args.query and args.query in queries:
         execute(args.query, queries[args.query])
