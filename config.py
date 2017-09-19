@@ -9,7 +9,13 @@ spark, sc = None, None
 
 def init_spark(pre=False):
     global spark, sc
-    spark = SparkSession.builder.appName("assignment").getOrCreate()
+    # spark = SparkSession.builder.appName("assignment").getOrCreate()
+    conf = (SparkConf().setAppName("smartcard"))
+    conf.set("spark.driver.memory", "16g")
+    conf.set("spark.executor.memory", "8g")
+    conf.set("spark.ui.port", "31040")
+    conf.set("spark.sql.shuffle.partitions", "200")
+    spark = SparkSession.builder.config(conf=conf).getOrCreate()
     sc = spark.sparkContext
     if pre:
         preload.init_spark(spark)
