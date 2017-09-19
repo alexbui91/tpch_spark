@@ -1,39 +1,49 @@
 from pyspark.sql import SparkSession
 # from pyspark.sql import SQLContext
-from structure import *
 from query import *
+import time
+import preload
+import argparse
 
-spark = SparkSession.builder.appName("assignment").getOrCreate()
-sc = spark.sparkContext
+spark, sc = None, None
 
-# customer = sc.textFile("/home/alex/Documents/tpch/dbgen/customer.tbl") \
-#             .map(lambda row: row.split('|'))
+def init_spark(pre=False):
+    global spark, sc
+    spark = SparkSession.builder.appName("assignment").getOrCreate()
+    sc = spark.sparkContext
+    if pre:
+        preload.init_spark(spark)
+    else:
+        preload.load_parquet(spark)
 
-# lineitem = sc.textFile("/home/alex/Documents/tpch/dbgen/lineitem.tbl") \
-#             .map(lambda row: row.split('|')) \
-#             .map(lambda row: [int(row[0]), int(row[1]), int(row[2]), 
-#                                 int(row[3]), float(row[4]), float(row[5]), 
-#                                 float(row[6]), float(row[7])] + row[8:-1])
 
-# nation = sc.textFile("/home/alex/Documents/tpch/dbgen/nation.tbl") \
-#             .map(lambda row: row.split('|')) \
-#             .map(lambda row: [int(row[0]), row[1], int(row[2]), row[3]])
+def execute_all():
+    global spark
+    for n, q in queries.iteritems():
+        try:
+            execute_query(spark, n, q)
+        except Exception as e: 
+            print('Error occured', e)
+            continue
 
-region = sc.textFile("/home/alex/Documents/tpch/dbgen/region.tbl") \
-            .map(lambda row: row.split('|')) \
-            .map(lambda row: [int(row[0]), row[1], row[2]])
 
-# df = spark.createDataFrame(customer, s_customer)
-# df.registerTempTable('customer')
+def execute(qname, query):
+    global spark
+    start = time.time()
+    result = spark.sql(query)
+    result.show()
+    duration = time.time() - start
+    print("Time to run query %s is: %ims" % (qname, duration))
 
-# df = spark.createDataFrame(lineitem, s_lineitem)
-# df.registerTempTable('lineitem')
 
-# df = spark.createDataFrame(nation, s_nation)
-# df.registerTempTable('nation')
+queries = {'q1': q1, 'q3': q3, 'q5': q5, 'q7': q7, 'q16': q16, 'q18': q18, 'q20': q20, 'q22': q22}
 
-df = spark.createDataFrame(region, s_region)
-df.registerTempTable('region')
 
-# re_q1 = spark.sql(q1)
-# re_q1.show()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-p", "--preload", default=False, type=bool)
+    parser.add_argument("-q", "--query")
+    args = parser.parse_args()
+    init_spark(args.preload)
+    if args.query and args.query in queries:
+        execute(args.query, queries[args.query])

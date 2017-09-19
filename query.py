@@ -75,90 +75,54 @@ q16 = "select P_BRAND, P_TYPE, P_SIZE, COUNT(DISTINCT PS_SUPPKEY) AS SUPPLIER_CN
     group by P_BRAND, P_TYPE, P_SIZE \
     order by SUPPLIER_CNT DESC, P_BRAND, P_TYPE, P_SIZE"
 
-q18 = " DROP VIEW Q18_TMP_CACHED; \
-        DROP TABLE Q18_LARGE_VOLUME_CUSTOMER_CACHED; \
-        CREATE VIEW Q18_TMP_CACHED AS \
-        SELECT L_ORDERKEY, SUM(L_QUANTITY) AS T_SUM_QUANTITY \
-        FROM LINEITEM \
-        WHERE L_ORDERKEY IS NOT NULL \
-        GROUP BY L_ORDERKEY; \
-        CREATE TABLE Q18_LARGE_VOLUME_CUSTOMER_CACHED AS \
-        SELECT C_NAME, C_CUSTKEY, O_ORDERKEY, O_ORDERDATE, O_TOTALPRICE, SUM(L_QUANTITY) \
-        FROM CUSTOMER, ORDERS, Q18_TMP_CACHED T, LINEITEM L \
-        WHERE C_CUSTKEY = O_CUSTKEY \
-            AND O_ORDERKEY = T.L_ORDERKEY \
-            AND O_ORDERKEY IS NOT NULL \
-            AND T.T_SUM_QUANTITY > 300 \
-            AND O_ORDERKEY = L.L_ORDERKEY \
-            AND L.L_ORDERKEY IS NOT NULL \
-        GROUP BY C_NAME, C_CUSTKEY, O_ORDERKEY, O_ORDERDATE, O_TOTALPRICE \
-        ORDER BY O_TOTALPRICE DESC, O_ORDERDATE  \
-        LIMIT 100"
+q18 = """
+    select c_name, c_custkey, o_orderkey, o_orderdate, o_totalprice, sum(l_quantity)
+    from customer, orders, lineitem
+    where o_orderkey in ( select l_orderkey
+                        from lineitem 
+                        group by l_orderkey 
+                        having sum(l_quantity) > 100 )
+        and c_custkey = o_custkey
+        and o_orderkey = l_orderkey
+    group by c_name, c_custkey, o_orderkey, o_orderdate, o_totalprice
+    order by o_totalprice desc, o_orderdate
+"""
 
-q20 = " DROP VIEW Q20_TMP1_CACHED; \
-        DROP VIEW Q20_TMP2_CACHED; \
-        DROP VIEW Q20_TMP3_CACHED; \
-        DROP VIEW Q20_TMP4_CACHED; \
-        CREATE VIEW Q20_TMP1_CACHED AS \
-        SELECT DISTINCT P_PARTKEY \
-        FROM PART \
-        WHERE P_NAME LIKE 'FOREST%'; \
-        CREATE VIEW Q20_TMP2_CACHED AS \
-        SELECT L_PARTKEY, L_SUPPKEY, 0.5 * SUM(L_QUANTITY) AS SUM_QUANTITY \
-        FROM LINEITEM \
-        WHERE L_SHIPDATE >= '1994-01-01' \
-            AND L_SHIPDATE < '1995-01-01' \
-        GROUP BY L_PARTKEY, L_SUPPKEY; \
-        CREATE VIEW Q20_TMP3_CACHED AS \
-        SELECT PS_SUPPKEY, PS_AVAILQTY, SUM_QUANTITY \
-        FROM PARTSUPP, Q20_TMP1_CACHED, Q20_TMP2_CACHED \
-        WHERE PS_PARTKEY = P_PARTKEY \
-            AND PS_PARTKEY = L_PARTKEY \
-            AND PS_SUPPKEY = L_SUPPKEY; \
-        CREATE VIEW Q20_TMP4_CACHED AS \
-        SELECT PS_SUPPKEY \
-        FROM Q20_TMP3_CACHED \
-        WHERE PS_AVAILQTY > SUM_QUANTITY \
-        GROUP BY PS_SUPPKEY; \
-        SELECT S_NAME, S_ADDRESS \
-        FROM SUPPLIER, NATION, Q20_TMP4_CACHED \
-        WHERE S_NATIONKEY = N_NATIONKEY AND N_NAME = 'CANADA' AND S_SUPPKEY = PS_SUPPKEY \
-        ORDER BY S_NAME"
+q20 = """
+    select s_name, s_address
+    from supplier, nation 
+    where s_suppkey in (
+        select ps_suppkey
+        from partsupp where ps_partkey in ( 
+            select p_partkey
+            from part
+            where p_name like 'forest%'
+        ) and ps_availqty > (
+            select 0.5 * sum(l_quantity)
+            from lineitem
+            where l_partkey = ps_partkey
+                and l_suppkey = ps_suppkey
+                and l_shipdate >= date('1994-01-20')
+                and l_shipdate < date('1995-01-20')
+        )
+    ) and s_nationkey = n_nationkey and n_name = 'CANADA'
+    order by s_name
+"""
 
-q22 = " DROP VIEW Q22_CUSTOMER_TMP_CACHED; \
-        DROP VIEW Q22_CUSTOMER_TMP1_CACHED; \
-        DROP VIEW Q22_ORDERS_TMP_CACHED; \
-        CREATE VIEW IF NOT EXISTS Q22_CUSTOMER_TMP_CACHED AS \
-        SELECT C_ACCTBAL, C_CUSTKEY, SUBSTR(C_PHONE, 1, 2) AS CNTRYCODE \
-        FROM CUSTOMER \
-        WHERE SUBSTR(C_PHONE, 1, 2) = '13' OR \
-            SUBSTR(C_PHONE, 1, 2) = '31' OR \
-            SUBSTR(C_PHONE, 1, 2) = '23' OR \
-            SUBSTR(C_PHONE, 1, 2) = '29' OR \
-            SUBSTR(C_PHONE, 1, 2) = '30' OR \
-            SUBSTR(C_PHONE, 1, 2) = '18' OR \
-            SUBSTR(C_PHONE, 1, 2) = '17'; \
-        CREATE VIEW IF NOT EXISTS Q22_CUSTOMER_TMP1_CACHED AS \
-        SELECT AVG(C_ACCTBAL) AS AVG_ACCTBAL \
-        FROM Q22_CUSTOMER_TMP_CACHED \
-        WHERE C_ACCTBAL > 0.00; \
-        CREATE VIEW IF NOT EXISTS Q22_ORDERS_TMP_CACHED AS \
-        SELECT O_CUSTKEY \
-        FROM ORDERS \
-        GROUP BY O_CUSTKEY; \
-        SELECT CNTRYCODE, COUNT(1) AS NUMCUST, SUM(C_ACCTBAL) AS TOTACCTBAL \
-        FROM ( SELECT CNTRYCODE, C_ACCTBAL, AVG_ACCTBAL \
-               FROM Q22_CUSTOMER_TMP1_CACHED CT1 JOIN ( \
-                    SELECT \
-                        CNTRYCODE, \
-                        C_ACCTBAL \
-                    FROM \
-                        Q22_ORDERS_TMP_CACHED OT \
-                        RIGHT OUTER JOIN Q22_CUSTOMER_TMP_CACHED CT \
-                        ON CT.C_CUSTKEY = OT.O_CUSTKEY \
-                    WHERE \
-                        O_CUSTKEY IS NULL \
-                ) CT2 ) A \
-        WHERE C_ACCTBAL > AVG_ACCTBAL \
-        GROUP BY CNTRYCODE \
-        ORDER BY CNTRYCODE "
+q22 = """
+    select cntrycode, count(*) as numcust, sum(c_acctbal) as totacctbal
+    from ( select substr(c_phone, 1, 2) as cntrycode, c_acctbal
+            from customer
+            where substr(c_phone, 1, 2) in ('13','31','23','29','30','18','17')
+                and c_acctbal > ( select avg(c_acctbal)
+                                from customer
+                                where c_acctbal > 0.00 and substr(c_phone, 1, 2) in ('13','31','23','29','30','18','17')
+                                ) 
+                and not exists ( select *
+                                from orders
+                                where o_custkey = c_custkey
+                                )
+            ) as custsale
+    group by cntrycode
+    order by cntrycode
+"""

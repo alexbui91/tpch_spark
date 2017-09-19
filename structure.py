@@ -2,11 +2,11 @@ from pyspark.sql.types import *
 
 s_customer = StructType([
     StructField("C_CUSTKEY", IntegerType(), False),
-    StructField("C_NAME", IntegerType(), True),
+    StructField("C_NAME", StringType(), True),
     StructField("C_ADDRESS", StringType(), True),
     StructField("C_NATIONKEY", IntegerType(), False),
     StructField("C_PHONE", StringType(), True),
-    StructField("C_ACCTBAL", DecimalType(), True),
+    StructField("C_ACCTBAL", DoubleType(), True),
     StructField("C_MKTSEGMENT", StringType(), True),
     StructField("C_COMMENT", StringType(), True)])
 
@@ -61,7 +61,7 @@ s_part = StructType([
     StructField("P_RETAILPRICE", DoubleType(), True),
     StructField("P_COMMENT", StringType(), True)])
 
-s_supp = StructType([
+s_supplier = StructType([
     StructField("S_SUPPKEY", IntegerType(), False),
     StructField("S_NAME", StringType(), True),
     StructField("S_ADDRESS", StringType(), True),
