@@ -4,6 +4,7 @@ from structure import *
 from query import *
 from datetime import datetime
 import properties as p
+import argparse
 
 
 spark, sc = None, None
@@ -76,13 +77,13 @@ def init_temple_dataframe():
         # print(df.first())
 
 
-def create_parquet(spark):
+def create_parquet(spark, prefix=''):
     for key, value in schema_entities.iteritems():
         df = spark.createDataFrame(value[0], value[1])
         # check dataframe
         # print(df.first())
         # save dataframe to parquet to save time
-        df.write.format("parquet").save("%s.parquet" % key, mode='overwrite')
+        df.write.format("parquet").save("%s%s.parquet" % (prefix, key), mode='overwrite')
 
 
 def load_parquet(spark):
@@ -95,7 +96,10 @@ def load_parquet(spark):
 # df.registerTempTable('customer')
 # print(df.first())
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-p", "--prefix")
+    args = parser.parse_args()
     init_spark()
-    create_parquet(spark)
+    create_parquet(spark, args.prefix)
     # init temp table
     
