@@ -1,4 +1,5 @@
 from pyspark.sql import SparkSession
+from pyspark import SparkConf
 # from pyspark.sql import SQLContext
 from structure import *
 from query import *
@@ -9,43 +10,43 @@ import argparse
 
 spark, sc = None, None
 schema_entities = {}
-tables = ['customer','lineitem','nation','region','part','partsupp','orders','supplier']
 
 
 def init_table(baseurl):
     date_format = '%Y-%m-%d'
+    customer, lineitem, nation, region, region, part, partsupp, orders, supplier = None, None, None, None, None, None, None, None, None
     customer = sc.textFile("%s/customer.tbl" % baseurl) \
                 .map(lambda row: row.split('|')) \
                 .map(lambda row: [int(row[0])] + row[1:3] + [int(row[3])] + [row[4]] + [float(row[5])] + row[6:-1])
 
-    lineitem = sc.textFile("%s/lineitem.tbl" % baseurl) \
-                .map(lambda row: row.split('|')) \
-                .map(lambda row: [int(x) for x in row[0:4]] + [float(x) for x in row[4:8]] + row[8:10] + [datetime.strptime(x, date_format) for x in row[10:13]] + row[13:-1])
+    # lineitem = sc.textFile("%s/lineitem.tbl" % baseurl) \
+    #             .map(lambda row: row.split('|')) \
+    #             .map(lambda row: [int(x) for x in row[0:4]] + [float(x) for x in row[4:8]] + row[8:10] + [datetime.strptime(x, date_format) for x in row[10:13]] + row[13:-1])
 
-    nation = sc.textFile("%s/nation.tbl" % baseurl) \
-                .map(lambda row: row.split('|')) \
-                .map(lambda row: [int(row[0]), row[1], int(row[2]), row[3]])
+    # nation = sc.textFile("%s/nation.tbl" % baseurl) \
+    #             .map(lambda row: row.split('|')) \
+    #             .map(lambda row: [int(row[0]), row[1], int(row[2]), row[3]])
 
-    region = sc.textFile("%s/region.tbl" % baseurl) \
-                .map(lambda row: row.split('|')) \
-                .map(lambda row: [int(row[0]), row[1], row[2]])
+    # region = sc.textFile("%s/region.tbl" % baseurl) \
+    #             .map(lambda row: row.split('|')) \
+    #             .map(lambda row: [int(row[0]), row[1], row[2]])
 
 
-    part = sc.textFile("%s/part.tbl" % baseurl) \
-                .map(lambda row: row.split('|')) \
-                .map(lambda row: [int(row[0])] + row[1:5] + [int(row[5]), row[6], float(row[7]), row[8]])
+    # part = sc.textFile("%s/part.tbl" % baseurl) \
+    #             .map(lambda row: row.split('|')) \
+    #             .map(lambda row: [int(row[0])] + row[1:5] + [int(row[5]), row[6], float(row[7]), row[8]])
 
-    partsupp = sc.textFile("%s/partsupp.tbl" % baseurl) \
-                .map(lambda row: row.split('|')) \
-                .map(lambda row: [int(x) for x in row[0:3]] + [float(row[3])] + [row[4]])
+    # partsupp = sc.textFile("%s/partsupp.tbl" % baseurl) \
+    #             .map(lambda row: row.split('|')) \
+    #             .map(lambda row: [int(x) for x in row[0:3]] + [float(row[3])] + [row[4]])
 
-    orders = sc.textFile("%s/orders.tbl" % baseurl) \
-                .map(lambda row: row.split('|')) \
-                .map(lambda row: [int(x) for x in row[0:2]] + [row[2]] + [float(row[3])] + [datetime.strptime(row[4], date_format)] + row[5:7] + [int(row[7])] + [row[8]])
+    # orders = sc.textFile("%s/orders.tbl" % baseurl) \
+    #             .map(lambda row: row.split('|')) \
+    #             .map(lambda row: [int(x) for x in row[0:2]] + [row[2]] + [float(row[3])] + [datetime.strptime(row[4], date_format)] + row[5:7] + [int(row[7])] + [row[8]])
 
-    supplier = sc.textFile("%s/supplier.tbl" % baseurl) \
-                .map(lambda row: row.split('|')) \
-                .map(lambda row: [int(row[0])] + row[1:3] + [int(row[3])] + [row[4]] + [float(row[5])] + [row[6]])
+    # supplier = sc.textFile("%s/supplier.tbl" % baseurl) \
+    #             .map(lambda row: row.split('|')) \
+    #             .map(lambda row: [int(row[0])] + row[1:3] + [int(row[3])] + [row[4]] + [float(row[5])] + [row[6]])
     return customer, lineitem, nation, region, region, part, partsupp, orders, supplier
 
 
@@ -54,7 +55,12 @@ def init_spark(sp=None):
     if sp:
         spark = sp
     else:
-        spark = SparkSession.builder.appName("assignment").getOrCreate()
+        conf = (SparkConf().setAppName("assignment"))
+        conf.set("spark.driver.memory", "256g")
+        conf.set("spark.executor.memory", "128g")
+        conf.set("spark.ui.port", "31040")
+        conf.set("spark.sql.shuffle.partitions", "100")
+        spark = SparkSession.builder.config(conf=conf).getOrCreate()
     sc = spark.sparkContext
     customer, lineitem, nation, region, region, part, partsupp, orders, supplier = init_table(p.baseurl)
     schema_entities = {
@@ -71,25 +77,32 @@ def init_spark(sp=None):
 
 def init_temple_dataframe():
     for key, value in schema_entities.iteritems():
-        df = spark.createDataFrame(value[0], value[1])
-        df.registerTempTable(key)
-        # check dataframe
-        # print(df.first())
+        if value[0]:
+            df = spark.createDataFrame(value[0], value[1])
+            df.registerTempTable(key)
+            # check dataframe
+            # print(df.first())
 
 
 def create_parquet(spark, prefix=''):
     for key, value in schema_entities.iteritems():
-        df = spark.createDataFrame(value[0], value[1])
-        # check dataframe
-        # print(df.first())
-        # save dataframe to parquet to save time
-        df.write.format("parquet").save("%s%s.parquet" % (prefix, key), mode='overwrite')
+        if value[0]:
+            df = spark.createDataFrame(value[0], value[1])
+            # check dataframe
+            # print(df.first())
+            # save dataframe to parquet to save time
+            df.write.format("parquet").save("%s%s.parquet" % (prefix, key), mode='overwrite')
 
 
-def load_parquet(spark):
+def load_parquet(spark, prefix='', tables=[]):
     for x in tables:
-        df = spark.read.load("%s.parquet" % x)
+        df = spark.read.load("%s%s.parquet" % (prefix, x))
         df.registerTempTable(x)
+
+
+def remove_parquet(spark, tables):
+    for x in tables:
+        spark.catalog.dropTempView(x)
 
 
 # df = spark.createDataFrame(customer, s_customer)
