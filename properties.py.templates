@@ -1,1 +1,14 @@
 baseurl='/home/alex/Documents/tpch/dbgen'
+port=31099
+dmem='1G'
+emem='512M'
+tables_need = {
+    'q1': ['lineitem'], 
+    'q3': ['customer', 'orders', 'lineitem'], 
+    'q5': ['customer', 'orders', 'lineitem', 'supplier', 'nation', 'region'], 
+    'q7': ['supplier', 'lineitem', 'orders', 'customer', 'nation'], 
+    'q16': ['partsup    p', 'part', 'supplier'], 
+    'q18': ['customer', 'orders', 'lineitem'], 
+    'q20': ['supplier', 'nation', 'partsupp', 'part', 'lineitem'], 
+    'q22': ['customer', 'orders']
+}
